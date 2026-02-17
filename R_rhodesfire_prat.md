@@ -1,0 +1,189 @@
+# Spatio-temporal Analysis of Vegetation Recovery: The Rhodes Wildfire (2023)
+## **A Multi-temporal Comparative Assessment using Sentinel-2 Imagery**
+
+---
+
+### **Presenter Information**
+| Name | Matricola | University |
+| :--- | :--- | :--- |
+| Pratyush Yadav | 0001219935 | University of Bologna |
+
+## 1. INTRODUCTION & STUDY AREA
+The Rhodes wildfire of July 2023 was one of the most devastating ecological events in recent Greek history, affecting over **13,500 hectares** of Mediterranean forest and shrubland.
+
+<img width="548" height="538" alt="rhode islaND" src="https://github.com/user-attachments/assets/c892166b-c57d-42d1-a86b-93ee92f30cdd" />
+
+* **Location:** Rhodes Island, Greece ($36.1^\circ N, 27.9^\circ E$).
+* **Problem:** Rapid identification of biomass loss is critical for emergency ecological restoration.
+* **Objective:** This study implements a multitemporal analysis to quantify the immediate degradation of vegetation vigor and identify high-priority "Deficit" zones.
+
+----
+
+## 2. METHODOLOGY
+The analysis was performed using **RStudio** with the `terra` and `imageRy` packages. 
+
+### Data Processing Steps:
+1. **Data Selection:** Sentinel-2 Level-2A imagery from June 2023 (Pre-fire) and August 2023 (Post-fire).
+2. **Spatial Alignment:** Used the `resample()` function to align June pixels to the August baseline.
+3. **Spectral Indices:** Calculated NDVI to measure photosynthetic activity:
+   $$NDVI = \frac{NIR - Red}{NIR + Red}$$
+
+   ----
+
+## 3. DATA PRE-PROCESSING & SPATIAL ALIGNMENT
+
+
+A critical technical step in this project was the **Resampling** of raster datasets to ensure temporal consistency.
+
+### The Challenge
+Satellite captures from different dates (June vs. August) may have slight variations in extent, coordinate reference systems, or pixel alignment. Without alignment, mathematical operations like subtraction would yield erroneous results.
+
+### The Solution
+Using the `resample()` function in R, the June "Pre-fire" baseline was aligned to the August "Post-fire" grid. This ensures that pixel-wise subtraction for change detection is mathematically accurate.
+
+
+
+### Implementation Code
+```r
+# Step 1: Load Libraries
+library(terra)
+library(imageRy)
+library(viridis)
+
+# Step 2: Load Satellite Data (Sentinel-2)
+# User selects the June (Pre-fire) and August (Post-fire) .tif files
+pre <- rast(file.choose())
+post <- rast(file.choose())
+ 
+# Step 3: Visual Comparison (True Color)
+par(mfrow=c(1,2))
+# June 2023 - True Color
+im.plotRGB(pre, 1, 2, 3)
+title("Pre-Fire: June 2023")
+# August 2023 - True Color
+im.plotRGB(post, 1, 2, 3)
+title("Post-Fire: August 2023")
+
+```
+---
+
+<img width="858" height="547" alt="comparison_RGB" src="https://github.com/user-attachments/assets/57163713-af1d-48c3-9955-b18f8eb8701e" />
+
+### 4. VISUAL ANALYSIS: TRUE COLOR COMPARISON
+
+
+The True Color (RGB: Bands 4, 3, 2) transition provides an immediate qualitative assessment of the damage.
+
+**Pre-Fire (June 2023):**
+Characterized by dense, high-vigor Mediterranean vegetation.
+
+**Post-Fire (August 2023):**
+Reveals the massive "Burn Scar" in the central mountainous region, characterized by carbonized biomass and bare soil.
+---
+
+```r
+# 1. Align the pixels (Pre-fire must match Post-fire exactly)
+pre_res <- resample(pre, post, method="near")
+
+# 2. Calculate NDVI for both dates
+# Sentinel-2 Bands: B8 (NIR) is band 4, B4 (Red) is band 1
+ndvi_pre <- (pre_res[[4]] - pre_res[[1]]) / (pre_res[[4]] + pre_res[[1]])
+ndvi_post <- (post[[4]] - post[[1]]) / (post[[4]] + post[[1]])
+
+# 3. Create the scientific comparison plot
+par(mfrow=c(1,2))
+
+# June NDVI (The baseline)
+plot(ndvi_pre, col=viridis(100), main="Vegetation Vigor: June 2023")
+
+# August NDVI (After the fire)
+plot(ndvi_post, col=viridis(100), main="Vegetation Vigor: August 2023")
+```
+<img width="858" height="547" alt="ndvi_comparison" src="https://github.com/user-attachments/assets/e2f1c186-713f-4162-806b-87e7dcdd3849" />
+
+### 5. NDVI: MEASURING VEGETATION VIGOR
+
+
+The Normalized Difference Vegetation Index (NDVI) was used to quantify chlorophyll activity.
+
+$$NDVI = \frac{NIR - Red}{NIR + Red}$$
+
+**Observation:** The post-fire NDVI maps show a dramatic shift toward negative values in the central island, indicating a total loss of photosynthetic capacity in the affected zones.
+
+---
+
+```r
+# 1. Calculate the change (Difference)
+# Formula: Post-Fire minus Pre-Fire
+# Negative values = Vegetation Loss
+diff_ndvi <- ndvi_post - ndvi_pre
+
+# 2. Plot the Difference Map
+# We use 'plasma' to make the burned areas pop
+# out in red/purple
+par(mfrow=c(1,1))
+plot(diff_ndvi, col=plasma(100), main="Rhodes Wildfire: Biomass Loss (Change Map)")
+```
+
+<img width="858" height="547" alt="change_map" src="https://github.com/user-attachments/assets/aca4b2d4-e058-4a01-9a40-05676dff50d9" />
+
+### 6. THE CHANGE MAP: ΔNDVI (Deficit vs. Surplus)
+
+
+The Difference Map was generated by subtracting the pre-fire baseline from the post-fire status.
+
+* **Deficit (Red/Purple):** Represents zones of intense biomass loss and high burn severity.
+* **Surplus/Stability (Green):** Represents unburned regions or areas with high ecological resilience.
+
+---
+
+```r
+# Step 5: Clustering pixels into 3 groups (Water, Forest,
+# Burned)
+class_august <- im.classify(post, num_clusters=3)
+
+# Generate the frequency table for the report
+freq(class_august)
+```
+
+<img width="858" height="547" alt="the main diff" src="https://github.com/user-attachments/assets/b81f7e99-36ee-4189-83e6-e832da2c00ae" />
+
+| Category | Pixel Count | Status |
+| :--- | :--- | :--- |
+| Class 1 (Yellow) | 9,141,030 | Healthy Vegetation |
+| Class 2 (Purple) | 3,851,170 | Burned Area (Burn Scar) |
+| Class 3 (Green) | 11,819,919 | Water (Mediterranean Sea) |
+
+
+### 7. QUANTITATIVE RESULTS & STATISTICS
+Based on the Land Cover Classification performed in R, the following statistics were derived:
+
+* **-31.4% Forest Cover Loss**
+  decrease in healthy vegetation pixels.
+
+* **+28.9% Soil/Burn Increase**
+  increase in bare soil and carbonized surface area.
+
+**Conclusion:** The central region suffered the most intense biomass loss, requiring immediate intervention.
+
+---
+
+
+### 8. CONCLUSION & DECISION-MAKING SUPPORT
+
+
+This project demonstrates the power of R-based remote sensing for rapid environmental assessment.
+
+* **Destruction:**
+    Analysis revealed a massive, immediate reduction in vegetation vigor.
+* **Insight:**
+    The $\Delta$ NDVI map allows managers to prioritize reforestation in "Deficit" zones.
+* **Future Work:**
+    Continuous monitoring on GitHub will track the "Resilience" phase and natural regrowth speed over the coming years.
+
+---
+
+
+
+
+
